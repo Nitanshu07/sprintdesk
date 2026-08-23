@@ -10,6 +10,7 @@ export default defineConfig(async () => {
   process.env.XDG_CONFIG_HOME ??= '.wrangler';
   const { cloudflare } = await import('@cloudflare/vite-plugin');
   return {
+    publicDir: 'frontend/public',
     css: { postcss: { plugins: [tailwindcss()] } },
     plugins: [react(), sites(), cloudflare()],
     server: { host: '127.0.0.1' },

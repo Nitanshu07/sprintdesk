@@ -2,6 +2,13 @@
 
 SprintDesk is a responsive sprint-management application built for the GrubPac frontend assignment. It includes DummyJSON authentication, protected routes, a persistent drag-and-drop Kanban board, live board-derived analytics, notification polling, light/dark themes, and focused unit tests.
 
+## Repository structure
+
+- `frontend/` - React application source, tests, and static assets.
+- `backend/` - Cloudflare Worker entry point used to serve the single-page application. SprintDesk otherwise uses the assignment's mock data and external APIs rather than a custom application server.
+- `docs/` - Architecture and API documentation required by the assignment.
+- Root configuration files - build, lint, test, deployment, and TypeScript configuration.
+
 ## Run locally
 
 Requirements: Node.js 22.13 or newer.
@@ -42,4 +49,4 @@ npm run lint
 - The optional Storybook, axe-core, date-range analytics filtering, and PNG export bonuses are not included.
 - Lighthouse targets should be verified against the final production URL on the evaluator's network and device.
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) and [API.md](./API.md) for implementation details.
+See [Architecture](./docs/ARCHITECTURE.md) and [API documentation](./docs/API.md) for implementation details.
