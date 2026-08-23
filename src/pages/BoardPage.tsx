@@ -1,0 +1,51 @@
+import { FormEvent, useMemo, useState } from 'react';
+import { closestCorners, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useQuery } from '@tanstack/react-query';
+import { Filter, GripVertical, MessageSquare, RotateCcw, Trash2, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { getMockData } from '../services';
+import { statuses, statusLabels, useBoardStore } from '../stores';
+import { filterTasks } from '../taskFilters';
+import type { Priority, Status, Task, User } from '../types';
+
+function TaskCard({ task, user, onOpen }: { task: Task; user?: User; onOpen: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, data: { status: task.status } });
+  return <article ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? .5 : 1 }} className="task-card" onClick={onOpen}>
+    <div className="task-top"><span className={`priority ${task.priority}`}>{task.priority}</span><button className="drag-handle" {...attributes} {...listeners} onClick={(event) => event.stopPropagation()} aria-label={`Move ${task.title}`}><GripVertical size={15} /></button></div><h2>{task.title}</h2><p>{task.description}</p><footer><img src={user?.avatar} alt={user?.name || 'Assignee'} /><span className={new Date(task.dueDate) < new Date('2026-08-23') && task.status !== 'done' ? 'overdue' : ''}>{new Date(task.dueDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></footer>
+  </article>;
+}
+
+function Column({ status, tasks, users, onOpen, onAdd }: { status: Status; tasks: Task[]; users: User[]; onOpen: (task: Task) => void; onAdd: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: status, data: { status } });
+  return <section ref={setNodeRef} className={`column ${isOver ? 'column-over' : ''}`}><header><div><i className={status} /><strong>{statusLabels[status]}</strong><span>{tasks.length}</span></div><button onClick={onAdd} aria-label={`Add task to ${statusLabels[status]}`}>+</button></header><SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}><div className="task-list">{tasks.map((task) => <TaskCard key={task.id} task={task} user={users.find((user) => user.id === task.assigneeId)} onOpen={() => onOpen(task)} />)}</div></SortableContext><button className="add-inline" onClick={onAdd}>+ Add task</button></section>;
+}
+
+function TaskDialog({ task, users, onClose }: { task: Task | null; users: User[]; onClose: () => void }) {
+  const updateTask = useBoardStore((state) => state.updateTask); const deleteTask = useBoardStore((state) => state.deleteTask);
+  const { data } = useQuery({ queryKey: ['mock-data'], queryFn: getMockData }); const [comments, setComments] = useState(data?.comments.filter((comment) => comment.taskId === task?.id) || []); const [message, setMessage] = useState('');
+  if (!task) return null;
+  const addComment = (event: FormEvent) => { event.preventDefault(); if (!message.trim()) return; setComments([...comments, { id: Date.now(), taskId: task.id, authorId: 1, message, createdAt: new Date().toISOString() }]); setMessage(''); };
+  return <div className="drawer-backdrop" onMouseDown={onClose}><aside className="task-drawer" onMouseDown={(e) => e.stopPropagation()} aria-label="Task details"><header><span className={`priority ${task.priority}`}>{task.priority}</span><button onClick={onClose} aria-label="Close task details"><X /></button></header><label>Task title<input value={task.title} onChange={(e) => updateTask(task.id,{title:e.target.value})} /></label><label>Description<textarea value={task.description} onChange={(e) => updateTask(task.id,{description:e.target.value})} /></label><div className="drawer-grid"><label>Status<select value={task.status} onChange={(e) => updateTask(task.id,{status:e.target.value as Status})}>{statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label><label>Priority<select value={task.priority} onChange={(e) => updateTask(task.id,{priority:e.target.value as Priority})}><option>low</option><option>medium</option><option>high</option></select></label><label>Assignee<select value={task.assigneeId} onChange={(e) => updateTask(task.id,{assigneeId:Number(e.target.value)})}>{users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label><label>Due date<input type="date" value={task.dueDate} onChange={(e) => updateTask(task.id,{dueDate:e.target.value})} /></label></div><section className="comments"><h3><MessageSquare size={16} /> Comments <span>{comments.length}</span></h3>{comments.map((comment) => <article key={comment.id}><img src={users.find((user) => user.id === comment.authorId)?.avatar} alt="" /><div><strong>{users.find((user) => user.id === comment.authorId)?.name}</strong><p>{comment.message}</p></div></article>)}<form onSubmit={addComment}><input value={message} onChange={(e) => setMessage(e.target.value)} aria-label="Comment" placeholder="Add a comment…" /><button>Send</button></form></section><button className="danger-button" onClick={() => { if (confirm(`Delete “${task.title}”?`)) { deleteTask(task.id); onClose(); } }}><Trash2 size={15} /> Delete task</button></aside></div>;
+}
+
+function CreateDialog({ users, onClose }: { users: User[]; onClose: () => void }) {
+  const addTask = useBoardStore((state) => state.addTask); const [title,setTitle]=useState(''); const [priority,setPriority]=useState<Priority>('medium'); const [assigneeId,setAssignee]=useState(1); const [dueDate,setDue]=useState('2026-08-28');
+  const submit=(e:FormEvent)=>{e.preventDefault(); addTask({title,priority,assigneeId,dueDate}); onClose();};
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal" onMouseDown={(e)=>e.stopPropagation()} onSubmit={submit}><header><div><span className="eyebrow">NEW WORK ITEM</span><h2>Add task</h2></div><button type="button" onClick={onClose} aria-label="Close"><X /></button></header><label>Task title<input autoFocus value={title} onChange={(e)=>setTitle(e.target.value)} required placeholder="What needs to be done?" /></label><div className="drawer-grid"><label>Priority<select value={priority} onChange={(e)=>setPriority(e.target.value as Priority)}><option>low</option><option>medium</option><option>high</option></select></label><label>Assignee<select value={assigneeId} onChange={(e)=>setAssignee(Number(e.target.value))}>{users.map((user)=><option key={user.id} value={user.id}>{user.name}</option>)}</select></label></div><label>Due date<input type="date" value={dueDate} onChange={(e)=>setDue(e.target.value)} required /></label><footer><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary">Create task</button></footer></form></div>;
+}
+
+export default function BoardPage() {
+  const { data, isLoading } = useQuery({ queryKey: ['mock-data'], queryFn: getMockData });
+  const [searchParams] = useSearchParams();
+  const tasks=useBoardStore((state)=>state.tasks); const moveTask=useBoardStore((state)=>state.moveTask); const undo=useBoardStore((state)=>state.undo); const previous=useBoardStore((state)=>state.previous);
+  const [selected,setSelected]=useState<Task|null>(null); const [creating,setCreating]=useState(false); const [priority,setPriority]=useState('all'); const [assignee,setAssignee]=useState('all');
+  const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
+  const query=searchParams.get('q')||'';
+  const filtered=useMemo(()=>filterTasks(tasks,{priority,assignee,query}),[tasks,priority,assignee,query]);
+  const dragEnd=({active,over}:DragEndEvent)=>{if(!over)return; const overTask=tasks.find((task)=>task.id===over.id); const status=(overTask?.status||over.data.current?.status) as Status; if(status) moveTask(Number(active.id),status,overTask?.id);};
+  if(isLoading&&!tasks.length)return <section className="content-page"><div className="board-skeleton" /></section>;
+  const users=data?.users||[]; const done=tasks.filter((task)=>task.status==='done').length;
+  return <section className="board-page"><div className="page-heading"><div><div className="eyebrow"><span className="live-dot" /> All sprints · 30 work items</div><h1>Sprint board</h1><p>Plan, prioritize and track work across Sprints 1-3.</p></div><div className="heading-actions">{previous&&<button className="secondary" onClick={undo}><RotateCcw size={14}/> Undo move</button>}<button className="primary" onClick={()=>setCreating(true)}>+ Add task</button></div></div><div className="board-toolbar"><div className="summary-strip"><div><strong>{tasks.length}</strong><span>Total tasks</span></div><div><strong>{done}</strong><span>Completed</span></div><div><strong>{tasks.length?Math.round(done/tasks.length*100):0}%</strong><span>Overall progress</span></div></div><div className="filters"><Filter size={15}/><select aria-label="Filter priority" value={priority} onChange={(e)=>setPriority(e.target.value)}><option value="all">All priorities</option><option>high</option><option>medium</option><option>low</option></select><select aria-label="Filter assignee" value={assignee} onChange={(e)=>setAssignee(e.target.value)}><option value="all">All assignees</option>{users.map((user)=><option key={user.id} value={user.id}>{user.name}</option>)}</select></div></div><DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={dragEnd}><div className="kanban" aria-label="Sprint task board">{statuses.map((status)=><Column key={status} status={status} tasks={filtered.filter((task)=>task.status===status).sort((a,b)=>a.order-b.order)} users={users} onOpen={setSelected} onAdd={()=>setCreating(true)} />)}</div></DndContext>{selected&&<TaskDialog task={tasks.find((task)=>task.id===selected.id)||null} users={users} onClose={()=>setSelected(null)}/>} {creating&&<CreateDialog users={users} onClose={()=>setCreating(false)}/>}</section>;
+}

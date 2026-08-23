@@ -43,4 +43,3 @@ npm run lint
 - Lighthouse targets should be verified against the final production URL on the evaluator's network and device.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) and [API.md](./API.md) for implementation details.
-
