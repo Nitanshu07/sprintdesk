@@ -8,6 +8,7 @@ for (const entry of readdirSync(clientDir)) {
 }
 
 const workerConfig = JSON.parse(readFileSync(join('dist', 'server', 'wrangler.json'), 'utf8'));
-delete workerConfig.main;
+workerConfig.main = 'server/index.js';
 workerConfig.assets = { ...workerConfig.assets, directory: '.', not_found_handling: 'single-page-application' };
 writeFileSync(join('dist', 'wrangler.json'), JSON.stringify(workerConfig));
+
