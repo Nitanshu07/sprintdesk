@@ -13,9 +13,7 @@ SprintDesk is a production-oriented sprint-management dashboard built for the Gr
 > ## SCREEN RECORDING - ACTION REQUIRED
 > Add the public Loom, Google Drive, or YouTube recording URL below before submitting the assignment.
 >
-> **Screen recording:** `PASTE_SCREEN_RECORDING_URL_HERE`
->
-> The submission is not complete until this placeholder is replaced with an accessible video link.
+> **Screen recording:** [Watch the SprintDesk demo](https://drive.google.com/file/d/1hWzQXqlqDYSaJk-bpsiY1h2mTNO4cy4T/view?usp=sharing)
 
 ### Recording checklist
 
